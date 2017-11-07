@@ -1,6 +1,6 @@
 # -*- encoding : utf-8 -*-
 set :stage, :production
-set :branch, 'deploy'
+set :branch, 'development'
 
 server "129.217.235.9", roles: %w{web app db}, user: 'ikhlawi', :primary => true
 

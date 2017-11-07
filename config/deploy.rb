@@ -7,7 +7,6 @@ set :deploy_user, 'ikhlawi'
 
 set :scm, :git
 set :repo_url,  'git@github.com:ikhlaw00/levumi.git'
-set :branch, 'development'
 
 set :deploy_to, "/home/ikhlawi/levumi"
 set :deploy_via, :remote_cache
