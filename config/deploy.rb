@@ -3,12 +3,13 @@
 lock '~> 3.4.0'
 
 set :application, 'levumi'
-set :deploy_user, 'levumi'
+set :deploy_user, 'ikhlawi'
 
 set :scm, :git
-set :repo_url,  'levumi@levumi.informatik.uni-kiel.de:/var/git/levumi.git'
+set :repo_url,  'git@github.com:ikhlaw00/levumi.git'
+set :branch, 'development'
 
-set :deploy_to, "/var/www/levumi"
+set :deploy_to, "/home/ikhlawi/levumi"
 set :deploy_via, :remote_cache
 
 set :tests, []
