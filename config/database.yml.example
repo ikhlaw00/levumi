@@ -21,9 +21,9 @@ test:
   database: db/test.sqlite3
 
 production:
-  adapter: mysql2
+  adapter: pg
   host: localhost
   database: levumi
-  username: levumi
-  password: imuvel
+  username: ikhlawi
+  password: ikhlawi
   encoding: utf8
