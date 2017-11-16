@@ -43,6 +43,7 @@ gem 'capistrano', '~> 3.4.0'
 gem 'capistrano-rails', '~> 1.1.3'
 gem 'capistrano-passenger'
 gem 'sshkit-sudo'
+gem 'capistrano-rails-collection'
 
 # Use debugger
 # gem 'debugger', group: [:development, :test]
