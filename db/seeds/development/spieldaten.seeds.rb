@@ -7,7 +7,9 @@
 #   cities = City.create([{ name: 'Chicago' }, { name: 'Copenhagen' }])
 #   Mayor.create(name: 'Emanuel', city: cities.first)
 
-u = User.create(name: "Herr Soundso", email: "test@test.com", password: "123", password_confirmation: "123", capabilities: "admin")
+
+
+u = User.create(name: "Herr Soundso", email: ENV['admin_email'], password: ENV['admin_password'], password_confirmation: ENV['admin_password'], capabilities: "admin")
 g = u.groups.build(name: "10a")
 g.save
 s = g.students.build(name: "Adam")
