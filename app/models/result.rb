@@ -193,18 +193,13 @@ class Result < ActiveRecord::Base
 
   #TODO: Aus Klasse Export übernommen und angepasst. Geht teilweise vielleicht auch noch kürzer.
   #Creates an XLS file containing a SPSS-friendly spreadsheet representation of a set of results objects. Information about students is also included.
-  #To restrict the export to a single test or a single user pass either a test id or user id as parameter. Use nil to indicate every test/every user.
-  def self.to_xls(test, user)
-    start_config = Time.now
+  #To restrict the export to a single user pass user id as parameter. Use nil to indicate every user. 
+  # For a specific test use to_xls_test
+  def self.to_xls(user)
     book = Spreadsheet::Workbook.new
     sheet1 = book.create_worksheet name: 'Items'
     sheetAlle = book.create_worksheet name: 'Alle Messungen - RZ'         #Without Reaktionszeiten
     sheetAlleRZ = book.create_worksheet name: 'Alle Messungen + RZ'  #With Reaktionszeiten
-
-    #sheetAlle.row(0).concat Student.table_headings
-    #sheetAlle.row(0).push "Messzeitpunkt"
-    #sheetAlleRZ.row(0).concat Student.table_headings
-    #sheetAlleRZ.row(0).push "Messzeitpunkt"
     sheet1.row(0).concat Item.table_headings
 
     sheets = {} # contains all sheets, e.g. "Lesetest", "Mathetest" and so on.
@@ -213,15 +208,11 @@ class Result < ActiveRecord::Base
     row = 1
     rowAlle = 1
 
-    # Call other method if the test is not null, the code stops here
-    unless test.nil?
-      return to_xls_test(test)
-    end
 
     # Get all tests to export
-    #Joined with assessents to select just tests with resulsts, also avoid empty tests
+    #Joined with assessents to select just tests with results, also avoid empty tests
     tests = 
-      unless user.nil?
+      unless user.nil?  # select just tests of user, not all tests
           Test.joins("inner join assessments on assessments.test_id=tests.id 
             inner join groups on groups.id=assessments.group_id 
             inner join users on groups.user_id=#{user}")
@@ -283,16 +274,15 @@ class Result < ActiveRecord::Base
             testname = k;
           end
         end
-        #nameersatz = testToCode(testname)
-        arr = arr.map{|x| x.to_s.prepend(testToCode(testname))} 
-
+        # Find the abbreviation of the test to write it with item ids, like SEL_2343
+        abbrev = Test.where(:name => testname.split(" - ")[0], :level => testname.split(" - ")[1]).select(:short_info).first.short_info
+        abbrev.nil? ? abbrev = testname : ""
+        arr = arr.map{|x| x.to_s.prepend(abbrev + "_")} 
         sheets[key].row(0).concat arr
         sheets[key].row(0).push " "
       end
       row = row + 1
     end
-    end_config = Time.now
-    start_statement = Time.now
     statement = "
       SELECT results.id, test_id, tests.name, date, student_id
       FROM results JOIN measurements ON measurements.id = measurement_id
@@ -304,9 +294,6 @@ class Result < ActiveRecord::Base
       WHERE export = \"t\" and tests.archive = \"f\" 
     "
 
-    unless test.nil?
-      statement = statement + " AND tests.id = #{test}"
-    end
     unless user.nil?
       statement = statement + " AND users.id = #{user}"
     end
@@ -353,77 +340,18 @@ class Result < ActiveRecord::Base
       globalRow = globalRow +1
     end
     
-    end_statement = Time.now
-    puts "config time "
-    puts end_config - start_config 
-    puts "statement time "
-    puts end_statement - start_statement
     temp = Tempfile.new('levumi')
     temp.close
     book.write temp.path
-    puts "time totally:  "
-    puts Time.now - start_config
-    puts "test: #{tests.count}"
-    puts "sheets: #{sheets.count}"
     return temp.path
   end
-end
 
- #Get the code of a specific test
-  def testToCode (t)
-   testcodes = {
-     "Silben lesen - Niveaustufe 0" => "SL0_",
-     "Silben lesen - Niveaustufe 1" => "SL1_",
-     "Silben lesen - Niveaustufe 2a" => "SL2a_",
-     "Silben lesen - Niveaustufe 2b" => "SL2b_",
-     "Silben lesen - Niveaustufe 3" => "SL3_",
-     "Silben lesen - Niveaustufe 4" => "SL4_",
-     "Pseudowörter lesen - Niveaustufe 0" => "PL0_",
-     "Pseudowörter lesen - Niveaustufe 1" => "PL1_",
-     "Pseudowörter lesen - Niveaustufe 2" => "PL2_",
-     "Pseudowörter lesen - Niveaustufe 2a" => "PL2a_",
-     "Pseudowörter lesen - Niveaustufe 2b" => "PL2b_",
-     "Pseudowörter lesen - Niveaustufe 3" => "PL3_",
-     "Pseudowörter lesen - Niveaustufe 3a" => "PL3a_",
-     "Pseudowörter lesen - Niveaustufe 3b" => "PL3b_",
-     "Pseudowörter lesen - Niveaustufe 4" => "PL4_",
-     "Wörter lesen - Niveaustufe 1" => "WL1_",
-     "Wörter lesen - Niveaustufe 2" => "WL2_",
-     "Wörter lesen - Niveaustufe 2a" => "WL2a_",
-     "Wörter lesen - Niveaustufe 2b" => "WL2b_",
-     "Wörter lesen - Niveaustufe 3" => "WL3_",
-     "Wörter lesen - Niveaustufe 4" => "WL4_",
-     "Buchstaben erkennen - Niveaustufe 1" => "BE1_",
-     "Buchstaben erkennen - Niveaustufe 2" => "BE2_",
-     "Wörter schreiben - Kurztest" =>"WSK_",
-     "Wörter schreiben - Level 0" =>"WS0_",
-     "Wörter schreiben - Level 1" =>"WS1_",
-     "Tastaturschulung - Level 0" =>"TS0_",
-     "Sichtwortschatz - Niveaustufe 2" => "SW2_",
-     "Sichtwortschatz - Niveaustufe 4" => "SW4_",
-     "Zahlen lesen - Niveaustufe 1" => "ZL1_",
-     "Zahlen lesen - Niveaustufe 2" => "ZL2_",
-     "Zahlen lesen - Niveaustufe 3" => "ZL3_",
-     "Zahlen lesen - Niveaustufe 4" => "ZL4_",
-     "Lesetest - Level 0" => "LT0_",
-     "Lesetest - Level 1" => "LT1_",
-     "Mathetest - Level 0" => "MT0_",
-     "Position finden  - Niveaustufe 1 (0-10)" => "PF1_",
-     "Position finden  - Niveaustufe 2 (0-20)" => "PF2_",
-     "Position finden  - Niveaustufe 3 (0-100)" => "PF3_",
-     "Zahl finden  - Niveaustufe 1 (0-10)" => "ZF1_",
-     "Zahl finden  - Niveaustufe 2 (0-20)" => "ZF2_",
-     "Zahl finden  - Niveaustufe 3 (0-100)" => "ZF3_",
-     "Sinnentnehmendes Lesen - N2" => "SEL2_",
-     "Sinnentnehmendes Lesen - N4" => "SEL4_"
-   }
-   return testcodes[t].nil? ? t : testcodes[t]
-  end
 
 
   # This method craetes the "Nach Test" sheets 
-  def to_xls_test(test)
-    t1 = Time.now
+  # notice: the sheets of MZP do not have students who attended that MZP, but
+  # students who attend for the first time, perhaps a student firstly attended at MZP 5, however the result should be shown in MZP1
+  def self.to_xls_test(test)
     book = Spreadsheet::Workbook.new
     sheet1 = book.create_worksheet name: 'Items'
     sheetAlle = book.create_worksheet name: 'Alle Messungen - RZ'         #Without Reaktionszeiten
@@ -431,8 +359,6 @@ end
     sheets = {}  # hash to save all sheets to print them at the end in sheetAlleRZ and sheetAlle
 
     sheet1.row(0).concat Item.table_headings
-    row_sheet1 = 1
-
     # Get all measurements of a specific test
     measurements = ActiveRecord::Base.connection.exec_query("
       SELECT measurements.id FROM measurements 
@@ -441,47 +367,59 @@ end
       WHERE assessments.test_id = #{test} AND export=\"t\"
       ORDER BY date ASC;")
 
-    idStudents = []
-    measurementsOfIDs = [] # to notice the number of measurement, it helps to choose the corresponding sheet
+    idStudents = [] # save ids of students in the current test
+    studentIDToSheet = [] # to get the index of next sheet of a specific student
+                          # It helps to assignt the result to the corresponding MZP
 
     # loop over each measurement to create a sheet and print all results
-    sheetNumber = 1     # current sheet, needed for writing the number of the sheet
+    sheetNumber = 0     # continuous value, needed for writing the number of the sheet 
+    itemset = Item.where(:test_id => test).where(itemtype: 0)
+    # Print items to items sheet
+    i = 1
+    itemset.each do |it|
+      sheet1.row(i).concat it.to_a
+      i += 1
+    end 
+    itemset_ids = itemset.pluck(:id)
     measurements.each do |r|
       id = r["id"]
-      itemset = Item.where(:test_id => test).where(itemtype: 0)
-      itemset_ids = itemset.pluck(:id)
       res = Result.where(:measurement_id => id)
-      first = true
-      sheet = nil    # to be accessible out of the loop
+      firstResult = true    # new measurement?
+      sheet = nil    # to be accessible out of the loop, not assigned now
+                     # Best case: every measurement has its own sheet wheen all students attend every measurement
+                     # BUT, when a student comes later, the sheet should be correspondingly changed!!!
+      currentSheetNumber = -1 # needed by changing the sheet
       i = 1
       res.each do |result| 
-        responses_of_result = result.to_a(itemset_ids)
+        responses_of_result = result.to_a(itemset_ids)  # Needed to exclude measurements with no results
+          # The sheet will be firstly created after detecting real results
+          # Sometimes there is results but they are empty
         if responses_of_result.any?(&:present?)
-          ############## the sheet will be firstly created after detecting real results
-          #sometimes there is results but they are empty
-          #Creating a sheet and wrting the results should be happen after detecting at least one noty empty result
-          if first      
+          studentID = result.student_id 
+          unless idStudents.include? studentID
+            idStudents << studentID
+            studentIDToSheet << 1
+          end 
+          indexOfID = idStudents.index(studentID)
+          correspondingMZP = studentIDToSheet[indexOfID]
+
+          # change current sheet only if the result should be in another sheet
+          # NOTE: This occurs only in case of a student started later
+          if correspondingMZP > sheetNumber
+            sheetNumber +=1
             sheet = book.create_worksheet :name => "MZP #{sheetNumber}"
-            sheetNumber = sheetNumber +1 
-            sheets[id] = sheet
+            sheets[sheetNumber] = sheet
+            currentSheetNumber = sheetNumber
             sheet.row(0).concat Student.table_headings
             sheet.row(0).push "Messzeitpunkt"
             sheet.row(0).push " "
-
-            # Print all items in items-sheet and at the top of the sheet
-            itemset.each do |it|
-              sheet1.row(row_sheet1).concat it.to_a
-              t = Test.find(test)
-              row_sheet1 = row_sheet1 + 1 
-            end
-            sheet.row(0).concat itemset_ids
-            first = false
+            sheet.row(0).concat itemset_ids.map{|x| x.to_s.prepend(Test.where(:id => test).first.short_info + "_")}
+          elsif correspondingMZP < currentSheetNumber || correspondingMZP > currentSheetNumber 
+            sheet = sheets[correspondingMZP]
+            currentSheetNumber = correspondingMZP
+            i = sheet.last_row_index + 1
           end
-          ##############
-          studentID = res.select(:student_id)
-          unless idStudents.include? studentID
-            idStudents << studentID
-          end # continue here
+          studentIDToSheet[indexOfID] += 1  # increment, so that next result should be in the next MZP-sheet 
           sheet.row(i).concat result.student.to_a 
           sheet.row(i).push result.measurement.date.to_date.strftime("%d.%m.%Y")
           sheet.row(i).push " "
@@ -491,7 +429,7 @@ end
       end
     end
 
-    # add headers results to sheetAlle and sheetAlleRZ
+    # add results to sheetAlle and sheetAlleRZ
     global_row = 0
     sheets.each do |name, sheet|
       sheet.each do |row|
@@ -512,9 +450,6 @@ end
     temp = Tempfile.new('levumi')
     temp.close
     book.write temp.path
-    t2 = Time.now
-    puts "Time: #{t2-t1}"
-    return temp.path
+    return temp.path 
   end
-
-
+end
